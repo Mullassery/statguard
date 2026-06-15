@@ -8,7 +8,37 @@ StatGuard uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+
+**Lakehouse table format support**
+- `DeltaReader` — reads Apache Delta Lake tables directly from the transaction log
+  - `read(path)` — current snapshot
+  - `read_version(path, version)` — time-travel by version number
+  - `read_as_of_timestamp(path, ms)` — time-travel by Unix timestamp
+  - `read_two_versions(path, ref, cur)` — convenience pair for drift analysis
+  - Auto-detected by `DataReader::read_file()` when `_delta_log/` directory is present
+- `IcebergReader` — reads Apache Iceberg v1/v2 tables from the metadata directory
+  - `read(path)` — current snapshot
+  - `read_snapshot(path, snapshot_id)` — time-travel by snapshot ID
+  - `read_as_of_timestamp(path, ms)` — time-travel by Unix timestamp
+  - `read_ref(path, ref_name)` — read a named branch or tag (e.g. `"main"`)
+  - `read_two_snapshots(path, ref_id, cur_id)` — convenience pair for drift analysis
+  - `list_snapshots(path)` — enumerate all snapshots with timestamps and operations
+  - Auto-detected by `DataReader::read_file()` when `metadata/` directory is present
+
+**Additional file formats**
+- `DataReader::read_avro(path)` — Apache Avro (uses Polars `avro` feature)
+- `DataReader::read_orc(path)` — Apache ORC (opt-in via `--features orc`)
+- Auto-detection extended: `.avro` and `.orc` extensions handled by `read_file()`
+
+**Python API additions**
+- `execute_delta(contract, table_path, version, reference_path, reference_version)`
+- `compare_delta_versions(contract, table_path, reference_version, current_version)`
+- `execute_iceberg(contract, table_path, snapshot_id, reference_snapshot)`
+- `list_iceberg_snapshots(table_path)` → list of snapshot dicts
+
+**Examples**
+- `examples/lakehouse_pipeline.py` — end-to-end Delta + Iceberg + drift detection example
 
 ---
 

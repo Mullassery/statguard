@@ -38,9 +38,17 @@ Quick start::
 from ._statguard import (
     DataContract,
     ValidationReport,
+    # Core execution
     execute,
     execute_file,
     execute_streaming,
+    # Delta Lake
+    execute_delta,
+    compare_delta_versions,
+    # Apache Iceberg
+    execute_iceberg,
+    list_iceberg_snapshots,
+    # Utilities
     validate_dsl,
     __version__,
 )
@@ -51,6 +59,10 @@ __all__ = [
     "execute",
     "execute_file",
     "execute_streaming",
+    "execute_delta",
+    "compare_delta_versions",
+    "execute_iceberg",
+    "list_iceberg_snapshots",
     "validate_dsl",
     "__version__",
 ]

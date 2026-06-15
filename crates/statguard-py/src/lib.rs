@@ -300,6 +300,120 @@ fn execute_streaming(
     Ok(reports.into_iter().map(|r| PyValidationReport { inner: r }).collect())
 }
 
+// ── Delta Lake ────────────────────────────────────────────────────────────────
+
+/// Execute a contract against a Delta Lake table directory.
+///
+/// Args:
+///     contract:         A compiled `DataContract`.
+///     table_path:       Path to the Delta table root directory (contains `_delta_log/`).
+///     version:          Optional Delta version for time-travel (default: latest).
+///     reference_path:   Optional Delta table path to use as drift reference.
+///     reference_version: Optional version of the reference table.
+#[pyfunction]
+#[pyo3(signature = (contract, table_path, version=None, reference_path=None, reference_version=None))]
+fn execute_delta(
+    contract: &PyDataContract,
+    table_path: &str,
+    version: Option<u64>,
+    reference_path: Option<&str>,
+    reference_version: Option<u64>,
+) -> PyResult<PyValidationReport> {
+    let df = statguard_io::DeltaReader::read_version(table_path, version)
+        .map_err(|e| PyRuntimeError::new_err(format!("Delta read error: {e}")))?;
+
+    let ref_df = match (reference_path, reference_version) {
+        (Some(rp), rv) => Some(
+            statguard_io::DeltaReader::read_version(rp, rv)
+                .map_err(|e| PyRuntimeError::new_err(format!("Delta reference read error: {e}")))?
+        ),
+        _ => None,
+    };
+
+    let engine = Engine::new(contract.inner.clone(), contract.dag.clone());
+    let report = engine.execute(&df, ref_df.as_ref());
+    Ok(PyValidationReport { inner: report })
+}
+
+/// Compare two Delta Lake versions for drift analysis.
+///
+/// Convenience wrapper around `execute_delta` that takes explicit version numbers
+/// and sets up drift detection automatically.
+///
+/// Args:
+///     contract:          A compiled `DataContract` (must have `stats` rules).
+///     table_path:        Path to the Delta table root.
+///     current_version:   The version to validate (default: latest).
+///     reference_version: The version to compare against.
+#[pyfunction]
+#[pyo3(signature = (contract, table_path, reference_version, current_version=None))]
+fn compare_delta_versions(
+    contract: &PyDataContract,
+    table_path: &str,
+    reference_version: u64,
+    current_version: Option<u64>,
+) -> PyResult<PyValidationReport> {
+    let (reference, current) =
+        statguard_io::DeltaReader::read_two_versions(table_path, reference_version, current_version.unwrap_or(u64::MAX))
+            .map_err(|e| PyRuntimeError::new_err(format!("Delta compare error: {e}")))?;
+
+    let engine = Engine::new(contract.inner.clone(), contract.dag.clone());
+    let report = engine.execute(&current, Some(&reference));
+    Ok(PyValidationReport { inner: report })
+}
+
+// ── Apache Iceberg ────────────────────────────────────────────────────────────
+
+/// Execute a contract against an Apache Iceberg table directory.
+///
+/// Args:
+///     contract:            A compiled `DataContract`.
+///     table_path:          Path to the Iceberg table root (contains `metadata/`).
+///     snapshot_id:         Optional snapshot ID for time-travel.
+///     reference_snapshot:  Optional snapshot ID to use as drift reference.
+#[pyfunction]
+#[pyo3(signature = (contract, table_path, snapshot_id=None, reference_snapshot=None))]
+fn execute_iceberg(
+    contract: &PyDataContract,
+    table_path: &str,
+    snapshot_id: Option<i64>,
+    reference_snapshot: Option<i64>,
+) -> PyResult<PyValidationReport> {
+    let df = statguard_io::IcebergReader::read_snapshot(table_path, snapshot_id)
+        .map_err(|e| PyRuntimeError::new_err(format!("Iceberg read error: {e}")))?;
+
+    let ref_df = match reference_snapshot {
+        Some(ref_id) => Some(
+            statguard_io::IcebergReader::read_snapshot(table_path, Some(ref_id))
+                .map_err(|e| PyRuntimeError::new_err(format!("Iceberg reference read error: {e}")))?
+        ),
+        None => None,
+    };
+
+    let engine = Engine::new(contract.inner.clone(), contract.dag.clone());
+    let report = engine.execute(&df, ref_df.as_ref());
+    Ok(PyValidationReport { inner: report })
+}
+
+/// List all snapshots of an Iceberg table.
+///
+/// Returns a list of dicts with keys: snapshot_id, timestamp_ms,
+/// parent_snapshot_id, operation.
+#[pyfunction]
+fn list_iceberg_snapshots(table_path: &str, py: Python<'_>) -> PyResult<Vec<PyObject>> {
+    let snapshots = statguard_io::IcebergReader::list_snapshots(table_path)
+        .map_err(|e| PyRuntimeError::new_err(format!("Iceberg error: {e}")))?;
+
+    snapshots.iter().map(|s| {
+        let d = PyDict::new(py);
+        d.set_item("snapshot_id", s.snapshot_id)?;
+        d.set_item("timestamp_ms", s.timestamp_ms)?;
+        d.set_item("parent_snapshot_id", s.parent_snapshot_id)?;
+        d.set_item("operation", s.operation.as_deref())?;
+        Ok(d.into())
+    }).collect()
+}
+
 /// Parse and validate DSL syntax without executing.
 /// Returns the contract name if valid, raises ValueError on parse error.
 #[pyfunction]
@@ -319,10 +433,23 @@ fn validate_dsl(dsl: &str) -> PyResult<String> {
 fn statguard(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyDataContract>()?;
     m.add_class::<PyValidationReport>()?;
+
+    // Core execution
     m.add_function(wrap_pyfunction!(execute, m)?)?;
     m.add_function(wrap_pyfunction!(execute_file, m)?)?;
     m.add_function(wrap_pyfunction!(execute_streaming, m)?)?;
+
+    // Delta Lake
+    m.add_function(wrap_pyfunction!(execute_delta, m)?)?;
+    m.add_function(wrap_pyfunction!(compare_delta_versions, m)?)?;
+
+    // Apache Iceberg
+    m.add_function(wrap_pyfunction!(execute_iceberg, m)?)?;
+    m.add_function(wrap_pyfunction!(list_iceberg_snapshots, m)?)?;
+
+    // Utilities
     m.add_function(wrap_pyfunction!(validate_dsl, m)?)?;
+
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

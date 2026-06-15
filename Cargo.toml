@@ -22,6 +22,7 @@ repository = "https://github.com/Mullassery/StatGuard"
 # Data processing
 polars = { version = "0.44", features = [
     "lazy", "parquet", "csv", "json", "ipc",
+    "avro",
     "strings", "regex", "dtype-date", "dtype-datetime",
     "describe", "rolling_window", "rank", "moment",
     "is_unique", "is_in", "cum_agg", "dynamic_group_by",
