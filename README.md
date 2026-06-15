@@ -190,6 +190,72 @@ for i, r in enumerate(reports):
         break
 ```
 
+### 6. Cloud storage (S3, GCS, Azure)
+
+```python
+# AWS S3, Google Cloud Storage, Azure Blob — credentials from env vars
+report = statguard.execute_cloud(contract, "s3://bucket/events/2026/06/*.parquet")
+report = statguard.execute_cloud(contract, "gs://bucket/events.csv")
+report = statguard.execute_cloud(contract, "az://container/data/")
+
+# Drift detection: compare two cloud datasets
+report = statguard.execute_cloud(
+    contract,
+    uri="s3://bucket/events/today/",
+    reference_uri="s3://bucket/events/yesterday/",
+)
+```
+
+### 7. SQL databases & warehouses
+
+```python
+# PostgreSQL, MySQL, SQLite (pure-Rust, fastest)
+report = statguard.execute_sql(
+    contract,
+    connection_string="postgresql://user:pass@localhost:5432/mydb",
+    query="SELECT * FROM orders WHERE created_date >= '2026-01-01'",
+)
+
+# BigQuery, Snowflake, Redshift, Databricks, ClickHouse, DuckDB (Python layer)
+report = statguard.execute_sql(
+    contract,
+    connection_string="bigquery://project/dataset",
+    query="SELECT * FROM events LIMIT 1000000",
+)
+
+# Drift detection: compare two SQL queries
+report = statguard.execute_sql(
+    contract,
+    connection_string="postgresql://localhost/db",
+    query="SELECT * FROM events WHERE date = CURRENT_DATE",
+    reference_query="SELECT * FROM events WHERE date = CURRENT_DATE - 1",
+)
+```
+
+### 8. Apache Spark
+
+```python
+from pyspark.sql import SparkSession
+import statguard
+
+spark = SparkSession.builder \
+    .config("spark.sql.execution.arrow.pyspark.enabled", "true") \
+    .getOrCreate()
+
+contract = statguard.DataContract.from_file("events.sg")
+spark_df = spark.read.parquet("s3a://bucket/events/")
+
+# Validate Spark DataFrame directly (Arrow zero-copy)
+report = statguard.execute_spark(contract, spark_df)
+
+# Drift detection between Spark DataFrames
+today = spark.read.parquet("s3a://bucket/today/")
+yesterday = spark.read.parquet("s3a://bucket/yesterday/")
+report = statguard.execute_spark(contract, today, reference_spark_df=yesterday)
+```
+
+Works on: local, YARN, Kubernetes, Databricks, AWS EMR, Google Dataproc, Azure HDInsight.
+
 ---
 
 ## Format, storage & connector compatibility
@@ -291,14 +357,23 @@ contract = statguard.DataContract.from_file("path/to/contract.sg")
 statguard.execute(contract, polars_df, reference=None)
 statguard.execute_file(contract, path, reference_path=None)
 statguard.execute_streaming(contract, path, batch_size=10_000)
+
+# Lakehouse formats
 statguard.execute_delta(contract, table_path, version=None,
                         reference_path=None, reference_version=None)
-statguard.compare_delta_versions(contract, table_path,
-                                 reference_version, current_version=None)
+statguard.compare_delta_versions(contract, table_path, ref_v, cur_v=None)
 statguard.execute_iceberg(contract, table_path, snapshot_id=None,
                           reference_snapshot=None)
-statguard.list_iceberg_snapshots(table_path)  # → list[dict]
-statguard.validate_dsl(dsl_string)             # syntax check only
+statguard.list_iceberg_snapshots(table_path)
+
+# Cloud & SQL & Spark
+statguard.execute_cloud(contract, uri, reference_uri=None)     # S3, GCS, Azure
+statguard.execute_sql(contract, connection_string, query,       # All databases
+                      reference_query=None)
+statguard.execute_spark(contract, spark_df, reference_spark_df=None)
+
+# Utilities
+statguard.validate_dsl(dsl_string)  # syntax check only
 
 # ValidationReport attributes
 report.passed          # bool
@@ -380,14 +455,22 @@ statguard/
 │   ├── statguard-engine/     Rayon parallel executor — batch + streaming
 │   ├── statguard-validators/ Type, null, regex, range, enum, uniqueness checks
 │   ├── statguard-stats/      PSI, KS test, HyperLogLog profiler, percentile stats
-│   ├── statguard-io/         Parquet · CSV · JSON · IPC · Avro · ORC
-│   │                         Delta Lake (transaction log replay)
-│   │                         Apache Iceberg (v1/v2 metadata + manifest parsing)
-│   │                         StreamingBatcher · RowBuffer
+│   ├── statguard-io/         Universal reader — auto-detects all formats
+│   │                         • Parquet, CSV, JSON, IPC, Avro, ORC (local + cloud)
+│   │                         • Delta Lake (pure Rust transaction log replay)
+│   │                         • Apache Iceberg (v1/v2 metadata parsing, no Spark)
+│   │                         • S3, GCS, Azure (Polars lazy, opt-in features)
+│   │                         • SQL: PostgreSQL, MySQL, SQLite (pure Rust via sqlx)
+│   │                         • StreamingBatcher, RowBuffer
 │   ├── statguard-metrics/    ValidationReport, health scores, Prometheus output
-│   └── statguard-py/         PyO3 bindings — all public API
+│   └── statguard-py/         PyO3 bindings — Rust layer public API
 └── python/
-    └── statguard/            Pure-Python shim + CLI
+    ├── statguard/
+    │   ├── __init__.py        Re-exports from both layers
+    │   ├── _connectors.py     Cloud (S3/GCS/Azure), SQL (13 connectors), Spark
+    │   └── _cli.py            CLI: validate, check commands
+    └── docs/
+        └── FORMAT_COMPATIBILITY.md   Full connector/format matrix vs competitors
 ```
 
 ### Execution pipeline

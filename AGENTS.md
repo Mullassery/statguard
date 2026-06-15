@@ -71,11 +71,13 @@ statguard/
 │   │       ├── drift.rs          DriftEngine → PSI, KS test, stat comparison
 │   │       └── hll.rs            HyperLogLog cardinality estimator (precision=14)
 │   │
-│   ├── statguard-io/             data ingestion
+│   ├── statguard-io/             data ingestion (all open-source drivers)
 │   │   └── src/
-│   │       ├── lib.rs            DataReader (parquet/csv/json/ipc/avro/orc), StreamingBatcher, RowBuffer
-│   │       ├── delta.rs          DeltaReader — transaction log replay, time-travel by version/timestamp
-│   │       └── iceberg.rs        IcebergReader — v1/v2 metadata, snapshot/ref/timestamp time-travel
+│   │       ├── lib.rs            DataReader — auto-detect all formats / directories
+│   │       ├── cloud.rs          CloudReader — S3/GCS/Azure (Polars lazy, opt-in features)
+│   │       ├── delta.rs          DeltaReader — transaction log replay, time-travel
+│   │       ├── iceberg.rs        IcebergReader — v1/v2 metadata, snapshot/ref time-travel
+│   │       └── sql.rs            SqlReader — Postgres/MySQL/SQLite (pure Rust via sqlx)
 │   │
 │   ├── statguard-metrics/        report generation
 │   │   └── src/
@@ -203,28 +205,44 @@ pip install -e ".[dev]"
 
 ## Python package
 
-Built with **maturin** + **pyo3**. The module name is `statguard._statguard`
-(compiled), re-exported from `python/statguard/__init__.py`.
+Built with **maturin** + **pyo3**. Main modules:
+
+- `statguard._statguard` — compiled Rust extension (Polars/Delta/Iceberg/core functions)
+- `statguard._connectors` — pure Python layer for cloud/SQL/Spark (all OSS licensed)
+- Both re-exported from `python/statguard/__init__.py`
 
 When the Python API accepts or returns a DataFrame it uses `pyo3-polars`'s
 `PyDataFrame` to bridge between Python Polars and the Rust polars crate.
 
 The CLI entry point is `statguard._cli:main`, registered in `pyproject.toml`.
 
-### Current public API (all in `crates/statguard-py/src/lib.rs`)
+All cloud/SQL/Spark connectors use open-source drivers only (MIT/Apache-2.0/BSD).
+Proprietary ODBC/JDBC (Oracle, SQL Server native) are intentionally excluded.
+
+### Current public API
+
+Rust layer (`crates/statguard-py/src/lib.rs`):
 
 | Symbol | Kind | Description |
 |---|---|---|
 | `DataContract` | class | Compiled contract; `.from_dsl()` / `.from_file()` |
 | `ValidationReport` | class | Result object with violations, drift, profiles, health |
 | `execute(contract, df, reference)` | fn | Validate a Polars DataFrame |
-| `execute_file(contract, path, reference_path)` | fn | Validate any file format |
+| `execute_file(contract, path, reference_path)` | fn | Validate any file format — auto-detects |
 | `execute_streaming(contract, path, batch_size)` | fn | Micro-batch streaming validation |
 | `execute_delta(contract, path, version, ...)` | fn | Delta Lake — current or versioned snapshot |
 | `compare_delta_versions(contract, path, ref_ver, cur_ver)` | fn | Delta drift comparison |
 | `execute_iceberg(contract, path, snapshot_id, ...)` | fn | Iceberg — current or snapshot |
 | `list_iceberg_snapshots(path)` | fn | List Iceberg snapshots as list[dict] |
 | `validate_dsl(dsl)` | fn | Syntax-check DSL without executing |
+
+Python layer (`python/statguard/_connectors.py` — open-source only):
+
+| Symbol | Kind | Description |
+|---|---|---|
+| `execute_cloud(contract, uri, reference_uri)` | fn | S3/GCS/Azure — format auto-detected |
+| `execute_sql(contract, connection_string, query, ...)` | fn | 13 OSS databases/warehouses (Rust + Python layer) |
+| `execute_spark(contract, spark_df, reference_spark_df)` | fn | PySpark DataFrames via Arrow bridge |
 
 ---
 
