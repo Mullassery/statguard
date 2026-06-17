@@ -864,6 +864,13 @@ All optional features use OSI-approved open-source licenses only. Proprietary dr
 
 ## Roadmap
 
+**Shipped (v0.2.0)**
+- [x] **Cross-column assertions in DSL** — `@blocking: assert amount > 0 when status == "paid"`
+- [x] **Custom Python validators** — `@statguard.validator()` decorator registry for business logic
+- [x] **Parallel multi-file validation** — `execute_files(contract, glob, workers=8)` with ThreadPoolExecutor
+- [x] **GPU-accelerated validation** — `execute_cudf(contract, gdf)` via RAPIDS Arrow interface
+- [x] **Referential integrity** — `check_referential_integrity()` foreign-key validation across DataFrames
+
 **Connectors**
 - [ ] Kafka — streaming validation with micro-batch windows and watermarks
 - [ ] Apache Flink — native DataStream and Table API integration
@@ -872,16 +879,19 @@ All optional features use OSI-approved open-source licenses only. Proprietary dr
 - [ ] GitHub Actions — `statguard-action` for contract validation in CI
 
 **DSL and rules**
-- [ ] Referential integrity in DSL — `foreign_key(customers.id)` enforced at execution time
+- [ ] Referential integrity in DSL — `foreign_key(customers.id)` enforced at execution time (Python-level check available)
 - [ ] Cross-dataset joins — validate consistency between two contracts in one run
+- [ ] Conditional quality metrics — `quality { amount > 0 if status == "paid" }` syntax
 
 **Output and observability**
 - [ ] OpenTelemetry traces — emit spans per check for distributed tracing
 - [ ] DataHub / OpenLineage lineage events on each validation run
+- [ ] Webhook callbacks — POST violations to external systems (Slack, PagerDuty, …)
 
 **Performance**
-- [ ] Zero-copy GPU path — run columnar checks directly on cuDF without transferring to CPU
+- [ ] Zero-copy GPU columnar path — avoid Arrow conversion for in-GPU validation
 - [ ] Distributed validation — shard large datasets across workers with result merging
+- [ ] Index-accelerated uniqueness — use Polars expr-level dedup for O(1) lookups
 
 ---
 
@@ -900,4 +910,5 @@ cargo fmt --all
 ## License
 
 MIT © 2026 [Georgi Mammen Mullassery](https://github.com/Mullassery)
+
 
