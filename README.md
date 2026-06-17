@@ -864,13 +864,6 @@ All optional features use OSI-approved open-source licenses only. Proprietary dr
 
 ## Roadmap
 
-**Shipped (v0.2.0)**
-- [x] **Cross-column assertions in DSL** — `@blocking: assert amount > 0 when status == "paid"`
-- [x] **Custom Python validators** — `@statguard.validator()` decorator registry for business logic
-- [x] **Parallel multi-file validation** — `execute_files(contract, glob, workers=8)` with ThreadPoolExecutor
-- [x] **GPU-accelerated validation** — `execute_cudf(contract, gdf)` via RAPIDS Arrow interface
-- [x] **Referential integrity** — `check_referential_integrity()` foreign-key validation across DataFrames
-
 **Connectors**
 - [ ] Kafka — streaming validation with micro-batch windows and watermarks
 - [ ] Apache Flink — native DataStream and Table API integration
