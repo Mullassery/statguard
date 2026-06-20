@@ -74,7 +74,7 @@ import statguard
 
 contract = statguard.DataContract.from_file("orders.sg")
 
-# Auto-detected from extension: Parquet, CSV, JSON, Avro, ORC, Arrow IPC, Delta, Iceberg
+# Auto-detected from extension: Parquet, CSV, JSON, Avro, Arrow IPC, Delta, Iceberg
 report = statguard.execute_file(contract, "orders.parquet")
 report = statguard.execute_file(contract, "orders.csv")
 report = statguard.execute_file(contract, "orders.avro")
@@ -87,7 +87,11 @@ report = statguard.execute_delta(contract, "/data/orders_delta/", version=5)  # 
 report = statguard.execute_iceberg(contract, "/data/orders_iceberg/")
 report = statguard.execute_iceberg(contract, "/data/orders_iceberg/", snapshot_id=9876543)
 
-# Polars DataFrame (in-memory)
+# Polars DataFrame (in-memory).
+# NOTE: passing a Polars DataFrame across the Rust boundary requires a Polars
+# build compatible with StatGuard's (pyo3-polars 0.18 / Polars 0.44). With a
+# newer Polars you may hit a `compat_level` error — prefer execute_file(), which
+# reads the data on the Rust side and has no such coupling.
 df = pl.read_parquet("orders.parquet")
 report = statguard.execute(contract, df)
 
@@ -510,7 +514,7 @@ See [BENCHMARKS.md](BENCHMARKS.md) for full methodology, scaling table, and repr
 | Anomaly detection | ✗ | ✗ | partial | partial | ✓ |
 | Delta Lake (no Spark) | ✗ | ✗ | ✗ | ✗ | ✓ |
 | Apache Iceberg (no Spark) | ✗ | ✗ | ✗ | ✗ | ✓ |
-| Avro / ORC | ✗ | ✗ | partial | ✗ | ✓ |
+| Avro | ✗ | ✗ | partial | ✗ | ✓ |
 | Streaming support | ✗ | ✗ | ✗ | partial | ✓ |
 | PII detection | ✗ | ✗ | ✗ | ✗ | ✓ |
 | Schema evolution detection | ✗ | ✗ | partial | ✗ | ✓ |
@@ -529,7 +533,7 @@ See [BENCHMARKS.md](BENCHMARKS.md) for full methodology, scaling table, and repr
 
 | | pandera | Great Expectations | Pydantic v2 | **StatGuard** |
 |---|---|---|---|---|
-| **Files** (Parquet, CSV, JSON, Avro, ORC, Arrow IPC) | ✓ via pandas | ✓ via pandas | ✗ load first | ✓ native |
+| **Files** (Parquet, CSV, JSON, Avro, Arrow IPC) | ✓ via pandas | ✓ via pandas | ✗ load first | ✓ native |
 | **Delta Lake** (no Spark) | ✗ | ✗ | ✗ | ✓ |
 | **Apache Iceberg** (no Spark) | ✗ | ✗ | ✗ | ✓ |
 | **Cloud** (S3, GCS, Azure) | via extras | ✓ native | ✗ | ✓ |
@@ -805,7 +809,7 @@ statguard/
 │   ├── statguard-validators/ Type, null, regex, range, enum, uniqueness checks
 │   ├── statguard-stats/      PSI, KS test, HyperLogLog profiler, percentile stats
 │   ├── statguard-io/         Universal reader — auto-detects all formats
-│   │                         • Parquet, CSV, JSON, IPC, Avro, ORC (local + cloud)
+│   │                         • Parquet, CSV, JSON, IPC, Avro (local + cloud)
 │   │                         • Delta Lake (pure Rust transaction log replay)
 │   │                         • Apache Iceberg (v1/v2 metadata parsing, no Spark)
 │   │                         • S3, GCS, Azure (Polars lazy, opt-in features)
