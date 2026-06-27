@@ -3,11 +3,11 @@ requires      = ["maturin>=1.7,<2.0"]
 build-backend = "maturin"
 
 [project]
-name            = "statguard"
+name            = "statguardian"
 version         = "0.1.0"
 description     = "High-performance data quality, validation, and drift monitoring — Rust engine with Python API"
 authors         = [{ name = "Georgi Mammen Mullassery", email = "mullassery@gmail.com" }]
-license         = { text = "MIT" }
+license         = { file = "LICENSE" }
 readme          = "README.md"
 requires-python = ">=3.8"
 keywords        = ["data-quality", "data-validation", "drift-detection", "schema-validation", "rust"]
