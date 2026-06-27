@@ -1,4 +1,4 @@
-# StatGuard
+# Statguardian
 
 **A Python library for data quality, validation, and statistical drift monitoring in production data pipelines — built in Rust.**
 
@@ -7,7 +7,7 @@
 [![Version](https://img.shields.io/badge/version-0.1.0-blue)](https://github.com/Mullassery/statguardian/releases)
 [![Rust](https://img.shields.io/badge/built%20with-Rust-orange.svg)](https://www.rust-lang.org)
 
-StatGuard is a Python library for validating your datasets against a declarative contract — schema, quality rules, statistical drift, and anomaly detection — across every major file format and lakehouse table format. You write one contract file; StatGuard compiles it into an optimised columnar execution plan and runs it at Rust speed.
+Statguardian is a Python library for validating your datasets against a declarative contract — schema, quality rules, statistical drift, and anomaly detection — across every major file format and lakehouse table format. You write one contract file; Statguardian compiles it into an optimised columnar execution plan and runs it at Rust speed.
 
 **Python is the frontend. Rust is the engine.**
 
@@ -869,7 +869,7 @@ DSL text  →  pest parser  →  DataContract AST
 
 ## Dependencies and licensing
 
-StatGuard is MIT licensed. All core dependencies use MIT, Apache-2.0, or BSD licenses.
+Statguardian is MIT licensed. All core dependencies use MIT, Apache-2.0, or BSD licenses.
 
 **Note on PostgreSQL support:** Using `execute_sql()` with PostgreSQL requires `psycopg2` (LGPL-2.1 with exceptions), which adds an LGPL component to your application. See [LICENSES.md](LICENSES.md) for full compliance details and impact on binary distributions.
 
@@ -918,7 +918,7 @@ cargo fmt --all
 
 ## License
 
-MIT © 2026 [Georgi Mammen Mullassery](https://github.com/Mullassery)
+MIT © 2026 Georgi Mammen Mullassery
 
 
 
